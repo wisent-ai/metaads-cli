@@ -1,11 +1,13 @@
 [automation]
 managed = true
-source_fingerprint = "7780acf0036273f0"
+source_fingerprint = "7551b54581ec3897"
 category = "developer"
+copy_status = "missing"
+approved_in = ""
 
 [banner]
-title = "Metaads CLI builds. You ship faster."
-description = "Meta Ads reporting and campaign operations CLI"
+title = "Metaads CLI"
+description = ""
 product = "Wisent"
 url = "wisent.com"
 theme = "dark"
