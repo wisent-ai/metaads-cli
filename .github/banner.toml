@@ -1,0 +1,15 @@
+[automation]
+managed = true
+source_fingerprint = "7780acf0036273f0"
+category = "developer"
+
+[banner]
+title = "Metaads CLI builds. You ship faster."
+description = "Meta Ads reporting and campaign operations CLI"
+product = "Wisent"
+url = "wisent.com"
+theme = "dark"
+layout = "signal-left"
+art_seed = "metaads-cli"
+width = 1584
+height = 396
