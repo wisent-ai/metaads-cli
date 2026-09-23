@@ -1,0 +1,17 @@
+[automation]
+managed = true
+source_fingerprint = "7551b54581ec3897"
+category = "developer"
+copy_status = "missing"
+approved_in = ""
+
+[banner]
+title = "Metaads CLI"
+description = ""
+product = "Wisent"
+url = "wisent.com"
+theme = "dark"
+layout = "signal-left"
+art_seed = "metaads-cli"
+width = 1584
+height = 396
