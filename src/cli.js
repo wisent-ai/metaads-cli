@@ -2,6 +2,10 @@
 
 import { createMetaAdsClient } from './index.js'
 
+// The invocation itself is wrong: exit 2 with the usage; any other failure
+// exits 1 with its own message (cli.md rule 10).
+class UsageError extends Error {}
+
 function usage() {
   return `metaads-cli
 
@@ -24,6 +28,8 @@ async function main() {
     console.log(usage())
     return
   }
+  const known = args[0] === 'accounts' || args[0] === 'campaigns' || args[0] === 'metrics'
+  if (!known) throw new UsageError(`Unknown command: ${args[0]}\n\n${usage()}`)
   const client = createMetaAdsClient({
     accessToken: process.env.META_ADS_ACCESS_TOKEN,
     graphVersion: process.env.META_GRAPH_API_VERSION,
@@ -32,11 +38,11 @@ async function main() {
   if (args[0] === 'accounts') result = await client.listAdAccounts()
   else if (args[0] === 'campaigns') result = await client.listCampaigns(value(args, '--account'))
   else if (args[0] === 'metrics') result = await client.reportInsights(value(args, '--account'), value(args, '--from'), value(args, '--to'))
-  else throw new Error(`Unknown command: ${args[0]}\n\n${usage()}`)
+  else throw new UsageError(`Unknown command: ${args[0]}\n\n${usage()}`)
   console.log(JSON.stringify(result, null, 2))
 }
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
+  process.exitCode = error instanceof UsageError ? 2 : 1
 })
