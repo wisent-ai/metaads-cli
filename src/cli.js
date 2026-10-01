@@ -17,12 +17,26 @@ Usage:
 
 The credential is a Skarbiec reference: --access-token names ITEM#FIELD, read with
 \`skarbiec get ITEM --field FIELD\` (SKARBIEC_BIN names another executable).
-No token is accepted in argv or the environment. Optional: --graph-version <version>.`
+No token is accepted in argv or the environment. Optional: --graph-version <version>.
+Results print as JSON; --text prints the same result as one path: value line per field.`
 }
 
 function value(args, name) {
   const index = args.indexOf(name)
   return index >= 0 ? args[index + 1] : null
+}
+
+// The same result for people: one `path: value` line per field (cli.md rule 13).
+function render(result, text) {
+  if (!text) return JSON.stringify(result, null, 2)
+  const lines = []
+  const walk = (node, path) => {
+    if (Array.isArray(node) && node.length) node.forEach((item, index) => walk(item, `${path}[${index}]`))
+    else if (node && typeof node === 'object' && Object.keys(node).length) for (const [key, item] of Object.entries(node)) walk(item, path ? `${path}.${key}` : key)
+    else lines.push(path ? `${path}: ${node === null || typeof node === 'object' ? '-' : node}` : String(node))
+  }
+  walk(result, '')
+  return lines.join('\n')
 }
 
 async function main() {
@@ -43,7 +57,7 @@ async function main() {
   else if (args[0] === 'campaigns') result = await client.listCampaigns(value(args, '--account'))
   else if (args[0] === 'metrics') result = await client.reportInsights(value(args, '--account'), value(args, '--from'), value(args, '--to'))
   else throw new UsageError(`Unknown command: ${args[0]}\n\n${usage()}`)
-  console.log(JSON.stringify(result, null, 2))
+  console.log(render(result, args.includes('--text')))
 }
 
 main().catch((error) => {
