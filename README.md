@@ -36,18 +36,19 @@ The command line reads its token from the environment; the JavaScript API accept
 
 ## Quick start
 
-Requires Node.js 20 or newer and a Meta access token authorized for the requested ad accounts.
+Requires Node.js 20 or newer, the `skarbiec` executable, and a Skarbiec item holding a Meta access token authorized for the requested ad accounts.
 
 ```bash
 git clone https://github.com/wisent-ai/metaads-cli.git
 cd metaads-cli
-export META_ADS_ACCESS_TOKEN='...'
-node src/cli.js accounts
-node src/cli.js campaigns --account act_123456789
-node src/cli.js metrics --account act_123456789 --from 2026-08-01 --to 2026-08-11
+node src/cli.js accounts --access-token meta-ads#access_token
+node src/cli.js campaigns --account act_123456789 --access-token meta-ads#access_token
+node src/cli.js metrics --account act_123456789 --from 2026-08-01 --to 2026-08-11 --access-token meta-ads#access_token
 ```
 
-Override the Graph API version with `META_GRAPH_API_VERSION` when Meta advances the contract.
+`--access-token` names a Skarbiec `ITEM#FIELD`; the CLI reads it with `skarbiec get ITEM --field FIELD` (`SKARBIEC_BIN` names another executable). No token is accepted in argv or the environment. Pass `--graph-version` when Meta advances the contract.
+
+A wrong invocation (unknown command, missing or malformed credential reference) exits 2; a failed Skarbiec read or API call exits 1 with its cause.
 
 Library use:
 
