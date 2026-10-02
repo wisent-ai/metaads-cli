@@ -39,15 +39,42 @@ function render(result, text) {
   return lines.join('\n')
 }
 
+// The flags each command reads and the ones it cannot run without; anything
+// else is refused with exit 2 before a credential is read (rules 10, 12).
+const SHARED = '--access-token --graph-version'.split(' ')
+const FLAGS = {
+  accounts: SHARED,
+  campaigns: SHARED.concat(['--account']),
+  metrics: SHARED.concat('--account --from --to'.split(' ')),
+}
+const REQUIRED = {
+  accounts: ['--access-token'],
+  campaigns: '--access-token --account'.split(' '),
+  metrics: '--access-token --account --from --to'.split(' '),
+}
+
+function checkInvocation(command, args) {
+  const known = FLAGS[command]
+  if (!known) throw new UsageError(`Unknown command: ${command}\n\n${usage()}`)
+  for (let index = 1; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--text') continue
+    if (!known.includes(arg)) throw new UsageError(`metaads ${command} does not take ${arg}; it takes ${known.join(', ')}, --text\n\n${usage()}`)
+    if (index + 1 >= args.length) throw new UsageError(`${arg} needs a value\n\n${usage()}`)
+    index += 1
+  }
+  for (const flag of REQUIRED[command]) {
+    if (!value(args, flag)) throw new UsageError(`metaads ${command} requires ${flag}\n\n${usage()}`)
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2)
   if (!args.length || args.includes('--help') || args.includes('-h')) {
     console.log(usage())
     return
   }
-  const known = args[0] === 'accounts' || args[0] === 'campaigns' || args[0] === 'metrics'
-  if (!known) throw new UsageError(`Unknown command: ${args[0]}\n\n${usage()}`)
-  if (!value(args, '--access-token')) throw new UsageError(`--access-token ITEM#FIELD is required\n\n${usage()}`)
+  checkInvocation(args[0], args)
   const client = createMetaAdsClient({
     accessToken: readCredential(value(args, '--access-token'), '--access-token'),
     graphVersion: value(args, '--graph-version'),
