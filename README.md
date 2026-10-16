@@ -68,12 +68,21 @@ prints the usage and exits 0.
 
 `node --test 'tests/**/*.test.mjs'` runs the CLI journeys: every wrong invocation above, each naming a credentials file the CLI would refuse if it read it; a token in `META_ADS_ACCESS_TOKEN`, which is not read; malformed references, a role Stado has no secret for, credentials files refused for permissions, shape and missing fields, and a file's token sent to the Meta Graph API, whose refusal of it is reported.
 
+Every Graph answer, the first and each page `paging.next` names, is read
+strictly. A body that is not JSON, such as a proxy's error page, ends the call
+with `Meta Graph API returned HTTP <status> with a body that is not JSON
+(<cause>): <body>`, never with the rows read so far; a refusal is its
+`error.message`, or `Meta Graph API returned HTTP <status>: <body>` when it
+carries none. `tests/graph/answers.test.mjs` hands the client a fetch answering
+with each of these and checks that every page is read.
+
 With `METAADS_TEST_DEFECT` and `METAADS_TEST_CRITERION` set together, a run on
 committed source that passes every case writes `criterion.json` under
-`.build/real-tests/cli-usage/<stamp>/` (tests/cli) or
-`.build/real-tests/credentials/<stamp>/` (tests/credentials): the revision, the
-digests of Node and of the test, and every CLI run with its arguments, exit
-status and standard error. Setting only one of them fails the run.
+`.build/real-tests/cli-usage/<stamp>/` (tests/cli),
+`.build/real-tests/credentials/<stamp>/` (tests/credentials) or
+`.build/real-tests/graph-answers/<stamp>/` (tests/graph): the revision, the
+digests of Node and of the test, and every run with what it observed. Setting
+only one of them fails the run.
 
 Library use:
 
