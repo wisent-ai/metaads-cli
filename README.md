@@ -66,7 +66,7 @@ usage before reading credentials. A reference that is not `ROLE#FIELD` also
 exits 2; a failed credential read or API call exits 1 with its cause. `--help`
 prints the usage and exits 0.
 
-`node --test 'tests/**/*.test.mjs'` runs the CLI journeys: every wrong invocation above, each naming a credentials file the CLI would refuse if it read it; malformed references, a role Stado has no secret for, credentials files refused for permissions, shape and missing fields, and a file's token sent to the Meta Graph API, whose refusal of it is reported.
+`node --test 'tests/**/*.test.mjs'` runs the CLI journeys: every wrong invocation above, each naming a credentials file the CLI would refuse if it read it; a token in `META_ADS_ACCESS_TOKEN`, which is not read; malformed references, a role Stado has no secret for, credentials files refused for permissions, shape and missing fields, and a file's token sent to the Meta Graph API, whose refusal of it is reported.
 
 With `METAADS_TEST_DEFECT` and `METAADS_TEST_CRITERION` set together, a run on
 committed source that passes every case writes `criterion.json` under

@@ -3,7 +3,9 @@
 // names a credentials file open to group and others, which the CLI refuses
 // with exit 1 whenever it reads it (the last case shows that refusal); so a
 // case that exits 2 without naming the file never reached the credential.
-// --help prints the usage on standard output and exits 0.
+// --help prints the usage on standard output and exits 0. A token in the
+// environment (META_ADS_ACCESS_TOKEN) is not a credential: without
+// --access-token the command is misuse, and the token never reaches output.
 //
 // A defect register that measures a repair by this run names the defect and
 // its criterion in METAADS_TEST_DEFECT and METAADS_TEST_CRITERION; when every
@@ -51,8 +53,15 @@ const uncommitted = git('status', '--porcelain', '--', 'src', 'tests/cli')
 assert.ok(!defectId || uncommitted === '', 'commit the CLI and this test before qualification')
 
 function metaads(...args) {
-  const run = spawnSync(process.execPath, [join(root, 'src', 'cli.js'), ...args], { encoding: 'utf8' })
-  runs.push({ args, exit: run.status, stderr: run.stderr })
+  return metaadsWith({}, ...args)
+}
+
+function metaadsWith(variables, ...args) {
+  const run = spawnSync(process.execPath, [join(root, 'src', 'cli.js'), ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, ...variables },
+  })
+  runs.push({ args, variables: Object.keys(variables), exit: run.status, stderr: run.stderr })
   return run
 }
 
@@ -106,6 +115,13 @@ check('--help prints the usage on standard output and exits 0', () => {
   assert.ok(run.stdout.startsWith('metaads-cli'), run.stdout)
   assert.match(run.stdout, /Usage:/)
   assert.equal(run.stderr, '')
+})
+
+check('a token in the environment is not read: without --access-token the command is misuse', () => {
+  const token = `metaads-cli-environment-${randomUUID()}`
+  const run = metaadsWith({ META_ADS_ACCESS_TOKEN: token }, 'accounts')
+  misuse(run, 'metaads accounts requires --access-token')
+  assert.ok(!run.stderr.includes(token), 'the token never reaches output')
 })
 
 check('the same invocation, once correct, reads the file and refuses it with exit 1', () => {
