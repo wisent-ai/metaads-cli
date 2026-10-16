@@ -17,15 +17,19 @@
 
 **Meta Ads CLI is a small Meta Marketing API client for ad-account discovery, campaign inventory, and dated campaign-level performance reporting.**
 
-The command line reads its token from the environment; the JavaScript API accepts an injected `fetch` implementation and returns normalized account, campaign, and insight records.
+The command line reads its token by the role a secret plays, through Stado or an owner-only credentials file; the JavaScript API accepts an injected `fetch` implementation and returns normalized account, campaign, and insight records.
 
 ## Included
 
 - accessible Meta ad accounts;
 - campaign inventory and delivery status;
 - daily impressions, reach, clicks, spend, actions, and action values;
-- normalized account IDs, currencies, statuses, and campaign records;
-- pagination across Graph API collection responses.
+- normalized account IDs, currencies, statuses, and campaign records; a field
+  or metric the Graph API answer omits is `null`, never an invented name,
+  currency or zero;
+- pagination across Graph API collection responses, following every next page;
+  a page whose body is not JSON is refused with its status, the parse cause and
+  the body instead of ending the list early.
 
 ## Explicit non-goals
 
@@ -36,7 +40,7 @@ The command line reads its token from the environment; the JavaScript API accept
 
 ## Quick start
 
-Requires Node.js 20 or newer, the `skarbiec` executable, and a Skarbiec item holding a Meta access token authorized for the requested ad accounts.
+Requires Node.js 20 or newer and a Meta access token authorized for the requested ad accounts, held either by a Stado credential item tagged with a role or in an owner-only credentials file.
 
 ```bash
 git clone https://github.com/wisent-ai/metaads-cli.git
@@ -46,9 +50,21 @@ node src/cli.js campaigns --account act_123456789 --access-token meta-ads#access
 node src/cli.js metrics --account act_123456789 --from 2026-08-01 --to 2026-08-11 --access-token meta-ads#access_token
 ```
 
-`--access-token` names a Skarbiec `ITEM#FIELD`; the CLI reads it with `skarbiec get ITEM --field FIELD` (`SKARBIEC_BIN` names another executable). No token is accepted in argv or the environment. Pass `--graph-version` when Meta advances the contract.
+`--access-token` names a credential reference `ROLE#FIELD`: the field of the secret that plays the role, not the name of a vault item, so renaming or rotating the item changes no invocation. The CLI reads it with `stado credentials get --role ROLE --field FIELD`; Stado refuses a role no item plays, or one several items play, and the CLI exits 1 with that refusal.
 
-A wrong invocation (unknown command, missing or malformed credential reference) exits 2; a failed Skarbiec read or API call exits 1 with its cause.
+Without Stado, pass `--credentials-file PATH`: a JSON object of roles, each an object of fields,
+
+```json
+{ "meta-ads": { "access_token": "…" } }
+```
+
+owned by the user running the CLI and closed to group and others (`chmod go= PATH`). A file owned by someone else, open to group or others, not JSON, or without the role or a non-empty string field is refused by name with exit 1. No token is accepted in argv or the environment. Pass `--graph-version` when Meta advances the contract.
+
+An unknown command, missing option value or duplicate valued option exits 2
+before reading credentials. A reference that is not `ROLE#FIELD` also exits 2;
+a failed credential read or API call exits 1 with its cause.
+
+`node --test 'tests/**/*.test.mjs'` runs the CLI journeys: malformed references, a role Stado has no secret for, credentials files refused for permissions, shape and missing fields, and a file's token sent to the Meta Graph API, whose refusal of it is reported.
 
 Library use:
 
@@ -62,9 +78,9 @@ const accounts = await metaAds.listAdAccounts()
 ## Operational model
 
 - **Transport:** official Meta Graph and Marketing APIs over HTTPS.
-- **Credentials:** environment variables for the CLI; explicit constructor fields for the library; bearer headers on requests.
+- **Credentials:** `ROLE#FIELD` references for the CLI, read through Stado or an owner-only `--credentials-file`; explicit constructor fields for the library; bearer headers on requests.
 - **State:** none.
-- **Output:** JSON to stdout or normalized JavaScript records.
+- **Output:** JSON to stdout, `--text` path-value output, or normalized JavaScript records.
 - **Cost and mutation:** reporting may consume API quota; this release exposes read operations only.
 
 ## Project status and support
