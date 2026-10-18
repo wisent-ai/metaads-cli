@@ -76,6 +76,13 @@ with `Meta Graph API returned HTTP <status> with a body that is not JSON
 carries none. `tests/graph/answers.test.mjs` hands the client a fetch answering
 with each of these and checks that every page is read.
 
+Each collection page must be an object with a `data` array. A JSON `null`,
+primitive, missing `data` or non-array `data` is refused with the page body,
+not returned as an empty or partial inventory. When present, `paging` must
+be an object and `paging.next` must be a nonblank string. Pagination ends
+only when `paging` or its `next` field is absent; malformed pagination is
+reported instead of silently dropping the remaining rows.
+
 With `METAADS_TEST_DEFECT` and `METAADS_TEST_CRITERION` set together, a run on
 committed source that passes every case writes `criterion.json` under
 `.build/real-tests/cli-usage/<stamp>/` (tests/cli),

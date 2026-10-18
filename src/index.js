@@ -108,10 +108,20 @@ export function createMetaAdsClient(options) {
   async function collect(path, query) {
     const rows = []
     let body = await request(path, query)
-    while (body) {
-      if (Array.isArray(body.data)) rows.push(...body.data)
-      const next = body.paging?.next
-      if (!next) break
+    while (true) {
+      if (body === null || typeof body !== 'object' || Array.isArray(body) || !Array.isArray(body.data)) {
+        throw new Error(`Meta Graph collection page must be an object with a data array: ${JSON.stringify(body)}`)
+      }
+      rows.push(...body.data)
+      if (body.paging === undefined) break
+      if (body.paging === null || typeof body.paging !== 'object' || Array.isArray(body.paging)) {
+        throw new Error(`Meta Graph collection page has invalid paging: ${JSON.stringify(body)}`)
+      }
+      const next = body.paging.next
+      if (next === undefined) break
+      if (typeof next !== 'string' || !next.trim()) {
+        throw new Error(`Meta Graph collection page has invalid paging.next: ${JSON.stringify(body)}`)
+      }
       body = await answerBody(await fetchImpl(next, { headers }))
     }
     return rows
