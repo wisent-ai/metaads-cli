@@ -14,7 +14,10 @@ function usage() {
 Usage:
   metaads accounts --access-token ROLE#FIELD
   metaads campaigns --account <id> --access-token ROLE#FIELD
-  metaads metrics --account <id> --from YYYY-MM-DD --to YYYY-MM-DD --access-token ROLE#FIELD
+  metaads adsets --account <id> [--campaign <id>] --access-token ROLE#FIELD
+  metaads ads --account <id> [--adset <id>] --access-token ROLE#FIELD
+  metaads metrics --account <id> --from YYYY-MM-DD --to YYYY-MM-DD [--level campaign|adset|ad] --access-token ROLE#FIELD
+  metaads breakdown --account <id> --from YYYY-MM-DD --to YYYY-MM-DD --by <age|gender|country|publisher_platform|…> --access-token ROLE#FIELD
 
 The credential is a reference ROLE#FIELD: the FIELD of the secret that plays ROLE,
 read with \`stado credentials get --role ROLE --field FIELD\`. With
@@ -43,12 +46,18 @@ const SHARED = '--access-token --credentials-file --graph-version'.split(' ')
 const FLAGS = {
   accounts: SHARED,
   campaigns: SHARED.concat(['--account']),
-  metrics: SHARED.concat('--account --from --to'.split(' ')),
+  adsets: SHARED.concat('--account --campaign'.split(' ')),
+  ads: SHARED.concat('--account --adset'.split(' ')),
+  metrics: SHARED.concat('--account --from --to --level'.split(' ')),
+  breakdown: SHARED.concat('--account --from --to --by'.split(' ')),
 }
 const REQUIRED = {
   accounts: ['--access-token'],
   campaigns: '--access-token --account'.split(' '),
+  adsets: '--access-token --account'.split(' '),
+  ads: '--access-token --account'.split(' '),
   metrics: '--access-token --account --from --to'.split(' '),
+  breakdown: '--access-token --account --from --to --by'.split(' '),
 }
 
 // Each valued flag once, each with a value; the flags read by name.
@@ -89,6 +98,10 @@ async function main() {
   let result
   if (command === 'accounts') result = await client.listAdAccounts()
   else if (command === 'campaigns') result = await client.listCampaigns(options.get('--account'))
+  else if (command === 'adsets') result = await client.listAdSets(options.get('--account'), options.get('--campaign'))
+  else if (command === 'ads') result = await client.listAds(options.get('--account'), options.get('--adset'))
+  else if (command === 'breakdown') result = await client.reportBreakdown(options.get('--account'), options.get('--from'), options.get('--to'), options.get('--by'))
+  else if (options.has('--level')) result = await client.reportLevelInsights(options.get('--account'), options.get('--from'), options.get('--to'), options.get('--level'))
   else result = await client.reportInsights(options.get('--account'), options.get('--from'), options.get('--to'))
   console.log(render(result, rest.includes('--text')))
 }

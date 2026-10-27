@@ -23,7 +23,26 @@ The command line reads its token by the role a secret plays, through Stado or an
 
 - accessible Meta ad accounts;
 - campaign inventory and delivery status;
-- daily impressions, reach, clicks, spend, actions, and action values;
+- ad sets, the account's or one campaign's (`adsets --account <id> [--campaign <id>]`,
+  `listAdSets`): each ad set's campaign, status, daily and lifetime budget,
+  optimisation goal, billing event, bid strategy and schedule, where a
+  campaign's spend is decided; a campaign id that is not numeric is refused
+  before any request;
+- ads, the account's or one ad set's (`ads --account <id> [--adset <id>]`,
+  `listAds`): each ad's status, ad set, campaign and the creative it shows
+  (`creativeId`, `creativeName`, `creativeTitle`, `creativeBody`), so a spend
+  line traces to what people saw; an ad set id that is not numeric is refused
+  before any request;
+- daily impressions, reach, clicks, spend, actions, and action values, per
+  campaign or, with `metrics --level adset|ad` (`reportLevelInsights`), per ad
+  set or ad with its `adSetId`, `adSetName`, `adId` and `adName` (`null` at
+  the campaign level); a level Meta does not define is refused with Meta's
+  own message;
+- the same results over a whole range split by one Insights breakdown
+  (`breakdown --by age|gender|country|publisher_platform|…`,
+  `reportBreakdown`), a row per campaign and value with `breakdown` and
+  `value`, so where the spend goes is read by audience; a breakdown Meta does
+  not define is refused with Meta's own message;
 - normalized account IDs, currencies, statuses, and campaign records; a field
   or metric the Graph API answer omits is `null`, never an invented name,
   currency or zero;
@@ -47,7 +66,10 @@ git clone https://github.com/wisent-ai/metaads-cli.git
 cd metaads-cli
 node src/cli.js accounts --access-token meta-ads#access_token
 node src/cli.js campaigns --account act_123456789 --access-token meta-ads#access_token
+node src/cli.js adsets --account act_123456789 --access-token meta-ads#access_token
+node src/cli.js ads --account act_123456789 --access-token meta-ads#access_token
 node src/cli.js metrics --account act_123456789 --from 2026-08-01 --to 2026-08-11 --access-token meta-ads#access_token
+node src/cli.js breakdown --account act_123456789 --from 2026-08-01 --to 2026-08-11 --by age --access-token meta-ads#access_token
 ```
 
 `--access-token` names a credential reference `ROLE#FIELD`: the field of the secret that plays the role, not the name of a vault item, so renaming or rotating the item changes no invocation. The CLI reads it with `stado credentials get --role ROLE --field FIELD`; Stado refuses a role no item plays, or one several items play, and the CLI exits 1 with that refusal.

@@ -107,6 +107,7 @@ check('a valued option given twice exits 2', () => {
 
 check('a missing required option exits 2 naming it', () => {
   misuse(metaads('metrics', ...CREDENTIAL, '--account', 'a', '--from', '2026-01-01'), 'metaads metrics requires --to')
+  misuse(metaads('breakdown', ...CREDENTIAL, '--account', 'a', '--from', 'a', '--to', 'a'), 'metaads breakdown requires --by')
 })
 
 check('--help prints the usage on standard output and exits 0', () => {

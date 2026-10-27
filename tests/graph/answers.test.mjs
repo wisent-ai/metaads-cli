@@ -7,7 +7,10 @@
 //     cause and the text, never with the rows read so far as if it were last;
 //   - a first answer that is not JSON is refused the same way;
 //   - a refusal carrying error.message is reported as that message, and one
-//     without it with its status and whole body.
+//     without it with its status and whole body;
+//   - a breakdown asks Meta for it and names its value on every row;
+//   - ad sets are read across pages, a campaign's from the campaign's edge;
+//   - ads are read with their creative, one ad set's from its own edge.
 //
 //   node --test tests/graph/answers.test.mjs
 //
@@ -124,6 +127,67 @@ journey('a refusal is its error.message, or its status and whole body', async ()
     message: `Meta Graph API returned HTTP ${http.HTTP_STATUS_FORBIDDEN}: ${body}`,
   })
   observed.push({ case: 'refusals', stated, body })
+})
+
+journey('a breakdown names its value on every row and asks Meta for that breakdown', async () => {
+  const row = (age) => ({ campaign_id: ACCOUNT, campaign_name: 'brand', age, spend: ACCOUNT })
+  const { asked, meta } = client({ first: page([row('18-24'), row('25-34')]) })
+  const [today] = new Date().toISOString().split('T')
+  const rows = await meta.reportBreakdown(ACCOUNT, today, today, 'age')
+  assert.deepEqual(rows.map(({ value }) => value), ['18-24', '25-34'])
+  assert.ok(rows.every((entry) => entry.breakdown === 'age' && entry.campaignName === 'brand'), JSON.stringify(rows))
+  const [request] = asked
+  assert.equal(new URL(request).searchParams.get('breakdowns'), 'age', request)
+  const [first] = rows
+  assert.equal(first.reach, null, 'a metric the answer omits is null')
+  observed.push({ case: 'breakdown', asked, rows: rows.length })
+})
+
+journey('ad sets are read across pages, one campaign\'s from its own edge, a non-numeric campaign refused', async () => {
+  const adSet = (id) => ({ id, name: `ad set ${id}`, campaign_id: ACCOUNT, status: 'ACTIVE', daily_budget: ACCOUNT })
+  const { asked, meta } = client({ first: page([adSet('a')], `${PAGES}/b`), [`${PAGES}/b`]: page([adSet('b')]) })
+  const sets = await meta.listAdSets(ACCOUNT, ACCOUNT)
+  assert.deepEqual(sets.map(({ id }) => id), ['a', 'b'])
+  const [first] = sets
+  assert.equal(first.status, 'active')
+  assert.equal(first.dailyBudget, Number(ACCOUNT))
+  assert.equal(first.lifetimeBudget, null, 'a budget the answer omits is null')
+  const [request] = asked
+  assert.ok(new URL(request).pathname.endsWith(`/${ACCOUNT}/adsets`), request)
+  const sent = asked.length
+  await assert.rejects(meta.listAdSets(ACCOUNT, 'brand'), /campaignId must be the campaign's numeric id/u)
+  assert.equal(asked.length, sent, 'the refused campaign id sent no request')
+  observed.push({ case: 'ad sets', asked, rows: sets.length })
+})
+
+journey('ads are read with the creative they show, one ad set\'s from its own edge, a non-numeric ad set refused', async () => {
+  const ad = { id: ACCOUNT, name: 'spring', status: 'ACTIVE', adset_id: ACCOUNT, creative: { id: ACCOUNT, title: 'Try it free' } }
+  const { asked, meta } = client({ first: page([ad]) })
+  const [read] = await meta.listAds(ACCOUNT, ACCOUNT)
+  assert.equal(read.creativeTitle, 'Try it free')
+  assert.equal(read.creativeBody, null, 'a creative field the answer omits is null')
+  assert.equal(read.status, 'active')
+  const [request] = asked
+  assert.ok(new URL(request).pathname.endsWith(`/${ACCOUNT}/ads`), request)
+  const sent = asked.length
+  await assert.rejects(meta.listAds(ACCOUNT, 'spring'), /adSetId must be the ad set's numeric id/u)
+  assert.equal(asked.length, sent, 'the refused ad set id sent no request')
+  observed.push({ case: 'ads', asked, ad: read })
+})
+
+journey('metrics at the ad level ask Meta for that level and name the ad on every row', async () => {
+  const row = { campaign_id: ACCOUNT, adset_id: ACCOUNT, ad_id: ACCOUNT, ad_name: 'spring', spend: ACCOUNT }
+  const { asked, meta } = client({ first: page([row]) })
+  const [today] = new Date().toISOString().split('T')
+  const [read] = await meta.reportLevelInsights(ACCOUNT, today, today, 'ad')
+  assert.equal(read.adName, 'spring')
+  assert.equal(read.adSetId, ACCOUNT)
+  const [request] = asked
+  assert.equal(new URL(request).searchParams.get('level'), 'ad', request)
+  const campaign = client({ first: page([{ campaign_id: ACCOUNT, spend: ACCOUNT }]) })
+  const [whole] = await campaign.meta.reportInsights(ACCOUNT, today, today)
+  assert.equal(whole.adId, null, 'the campaign level names no ad')
+  observed.push({ case: 'level insights', asked, row: read })
 })
 
 after(() => {

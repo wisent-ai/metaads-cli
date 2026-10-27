@@ -62,6 +62,11 @@ export function normalizeMetaInsight(row) {
     dateStop: field(row.date_stop),
     campaignId: field(row.campaign_id),
     campaignName: field(row.campaign_name),
+    // Present at the ad set and ad levels; null at the campaign level.
+    adSetId: field(row.adset_id),
+    adSetName: field(row.adset_name),
+    adId: field(row.ad_id),
+    adName: field(row.ad_name),
     impressions: metric(row.impressions),
     reach: metric(row.reach),
     clicks: metric(row.clicks),
@@ -137,18 +142,95 @@ export function createMetaAdsClient(options) {
       const rows = await collect(`/act_${id}/campaigns`, { fields: 'id,name,status,effective_status,objective,buying_type,daily_budget,lifetime_budget' })
       return rows.map(normalizeMetaCampaign)
     },
+    // The account's ad sets: where each campaign's budget, schedule and
+    // optimisation are set, so a campaign's spend can be traced to the ad set
+    // that decides it. With a campaign id, only that campaign's.
+    async listAdSets(accountId, campaignId) {
+      const id = metaAdAccountId(accountId)
+      const fields = 'id,name,status,effective_status,campaign_id,daily_budget,lifetime_budget,optimization_goal,billing_event,bid_strategy,start_time,end_time'
+      let path = `/act_${id}/adsets`
+      if (campaignId !== undefined) {
+        const campaign = requireText(campaignId, 'campaignId')
+        if (!/^\d+$/u.test(campaign)) throw new Error(`campaignId must be the campaign's numeric id, got ${JSON.stringify(campaignId)}`)
+        path = `/${campaign}/adsets`
+      }
+      const rows = await collect(path, { fields })
+      return rows.map((row) => ({
+        id: field(row.id),
+        name: field(row.name),
+        campaignId: field(row.campaign_id),
+        status: lowered(row.status),
+        effectiveStatus: lowered(row.effective_status),
+        dailyBudget: metric(row.daily_budget),
+        lifetimeBudget: metric(row.lifetime_budget),
+        optimizationGoal: lowered(row.optimization_goal),
+        billingEvent: lowered(row.billing_event),
+        bidStrategy: lowered(row.bid_strategy),
+        startTime: field(row.start_time),
+        endTime: field(row.end_time),
+      }))
+    },
+    // The ads of one ad set, or of the account: each ad's status, the ad set
+    // and campaign it runs under and the creative it shows, so a spend line
+    // in `metrics` can be traced to the creative people saw.
+    async listAds(accountId, adSetId) {
+      const id = metaAdAccountId(accountId)
+      let path = `/act_${id}/ads`
+      if (adSetId !== undefined) {
+        const adSet = requireText(adSetId, 'adSetId')
+        if (!/^\d+$/u.test(adSet)) throw new Error(`adSetId must be the ad set's numeric id, got ${JSON.stringify(adSetId)}`)
+        path = `/${adSet}/ads`
+      }
+      const rows = await collect(path, { fields: 'id,name,status,effective_status,adset_id,campaign_id,creative{id,name,title,body}' })
+      return rows.map((row) => ({
+        id: field(row.id),
+        name: field(row.name),
+        status: lowered(row.status),
+        effectiveStatus: lowered(row.effective_status),
+        adSetId: field(row.adset_id),
+        campaignId: field(row.campaign_id),
+        creativeId: field(row.creative?.id),
+        creativeName: field(row.creative?.name),
+        creativeTitle: field(row.creative?.title),
+        creativeBody: field(row.creative?.body),
+      }))
+    },
     async reportInsights(accountId, dateFrom, dateTo) {
+      return this.reportLevelInsights(accountId, dateFrom, dateTo, 'campaign')
+    },
+    // The daily results at one level of the account: per campaign, per ad set
+    // or per ad (the Insights API's `level`), so spend is traced below the
+    // campaign to the ad set or ad that took it. A level Meta does not define
+    // is refused with Meta's message.
+    async reportLevelInsights(accountId, dateFrom, dateTo, level) {
       const id = metaAdAccountId(accountId)
       const timeRange = JSON.stringify({ since: requireText(dateFrom, 'dateFrom'), until: requireText(dateTo, 'dateTo') })
       const rows = await collect(`/act_${id}/insights`, {
-        level: 'campaign',
+        level: requireText(level, 'level'),
         // One row per day: the time_increment value the Insights API defines
         // for daily rows, https://developers.facebook.com/docs/marketing-api/insights/parameters/
         time_increment: 1,
         time_range: timeRange,
-        fields: 'date_start,date_stop,campaign_id,campaign_name,impressions,reach,clicks,spend,actions,action_values',
+        fields: 'date_start,date_stop,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,clicks,spend,actions,action_values',
       })
       return rows.map(normalizeMetaInsight)
+    },
+    // The account's results over the whole range split by one breakdown the
+    // Insights API defines (age, gender, country, publisher_platform, …,
+    // https://developers.facebook.com/docs/marketing-api/insights/breakdowns/),
+    // a row per campaign and value, so where the spend goes is read by
+    // audience; a breakdown Meta does not know is refused with Meta's message.
+    async reportBreakdown(accountId, dateFrom, dateTo, breakdown) {
+      const id = metaAdAccountId(accountId)
+      const by = requireText(breakdown, 'breakdown')
+      const timeRange = JSON.stringify({ since: requireText(dateFrom, 'dateFrom'), until: requireText(dateTo, 'dateTo') })
+      const rows = await collect(`/act_${id}/insights`, {
+        level: 'campaign',
+        breakdowns: by,
+        time_range: timeRange,
+        fields: 'date_start,date_stop,campaign_id,campaign_name,impressions,reach,clicks,spend,actions,action_values',
+      })
+      return rows.map((row) => ({ breakdown: by, value: field(row[by]), ...normalizeMetaInsight(row) }))
     },
   }
 }
